@@ -1,0 +1,20 @@
+{
+    "tasks": [
+        {
+            "url": "A",
+            "outputPath": "A1",
+            "name": "Name A"
+        },
+        {
+            "url": "B",
+            "outputPath": "B2",
+            "name": "Name B"
+        },
+        {
+            "url": "C",
+            "outputPath": "C3",
+            "name": "Name C"
+        }
+    ],
+    "updateTime": "10:20"
+}
