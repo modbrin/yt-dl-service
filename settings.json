@@ -1,19 +1,9 @@
 {
     "tasks": [
         {
-            "url": "A",
-            "outputPath": "A1",
-            "name": "Name A"
-        },
-        {
-            "url": "B",
-            "outputPath": "B2",
-            "name": "Name B"
-        },
-        {
-            "url": "C",
-            "outputPath": "C3",
-            "name": "Name C"
+            "url": "https://www.youtube.com/channel/UCYx8WyaEHH-Wd9hmG0FHVzw/videos",
+            "outputPath": "/home/modbrin/projects/yt-dl-service/test/",
+            "name": "My Channel"
         }
     ],
     "updateTime": "10:20"
