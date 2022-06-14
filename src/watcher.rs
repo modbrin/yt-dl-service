@@ -1,12 +1,14 @@
-use futures::{Future, TryFutureExt};
+use std::cell::Cell;
 use std::collections::BTreeSet;
-use std::ffi::OsStr;
 use std::fs::read_dir;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::oneshot;
+use tracing::{debug, trace};
+
+use crate::settings::DownloadEntity;
 
 type VideoId = String;
 
@@ -26,37 +28,30 @@ where
 }
 
 // TODO: implement
-// pub fn get_unfinished_downloads<P>(dir_path: P) -> Result<BTreeSet<VideoId>, &'static str>
-// where
-//     P: AsRef<Path>,
-//     PathBuf: From<P>,
-// {
-//     let mut tmp_path: PathBuf = PathBuf::from(dir_path);
-//     tmp_path.push(TEMP_DIR);
-//     let paths = read_dir(tmp_path).map_err(
-//         |_| "Failed to list directory via indicated path."
-//     )?;
-//     let tmp_count = paths.into_iter().count();
-//     tmp_count > 0
-// }
+pub fn get_unfinished_downloads<P>(dir_path: P) -> Result<BTreeSet<VideoId>, &'static str>
+where
+    P: AsRef<Path>,
+    PathBuf: From<P>,
+{
+    todo!()
+}
 
 // TODO: implement
-// pub fn remove_tmp_if_empty() {
-// }
+pub fn remove_tmp_if_empty() -> Result<(), &'static str> {
+    todo!()
+}
 
-pub async fn process_channel(url: &str, path: &str) -> Result<(), &'static str> {
+pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
     let (send, recv) = oneshot::channel::<()>();
-
     let mut child = Command::new("yt-dlp")
         .stdout(Stdio::piped())
         .arg("-P")
-        .arg(path)
+        .arg(&task.output_path)
         .arg("-P")
         .arg(format!("temp:{}", TEMP_DIR))
-        .arg(url)
+        .arg(&task.url)
         .spawn()
         .map_err(|_| "Failed to spawn command.")?;
-
     let stdout = child
         .stdout
         .take()
@@ -64,26 +59,29 @@ pub async fn process_channel(url: &str, path: &str) -> Result<(), &'static str> 
     let mut reader = BufReader::new(stdout).lines();
 
     tokio::select! {
-        res = child.wait() => {
-            match res {
-                Ok(exit_code) => println!("Child process exited with {}", exit_code),
-                _ => (),
-            }
+        retcode = child.wait() => {
+            trace!("yt-dlp subprocess exited with: {:?}", retcode);
         },
         _ = async move {
+            let send_cell = Cell::new(Option::Some(send));
             while let Ok(Some(line)) = reader.next_line().await {
-                println!("entry: {:?}", line);
+                trace!("{}", line);
                 if line.trim_end().ends_with("has already been downloaded") {
-                    break;
+                    debug!("Found video that has already been downloaded, stopping.");
+                    let _ = match send_cell.take() {
+                        Some(s) => s.send(()),
+                        _ => Ok(()),
+                    };
                 }
             }
-            send.send(());
-            while let Ok(Some(line)) = reader.next_line().await {} // TODO: better handling?
         } => {},
         _ = recv => child.kill()
-                        .await
-                        .expect("Failed to stop yt-dlp subprocess.")
-
+                       .await
+                       .map_err(|_| "Failed to stop yt-dlp subprocess.")?
     }
+    Ok(())
+}
+
+pub fn setup_watcher() -> Result<(), &'static str> {
     Ok(())
 }

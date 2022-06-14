@@ -17,6 +17,7 @@ pub struct Settings {
     pub tasks: Vec<DownloadEntity>,
     pub update_time: String,
     pub log_path: Option<String>,
+    pub update_on_start: Option<bool>,
 }
 
 pub fn load_settings() -> Result<Settings, &'static str> {

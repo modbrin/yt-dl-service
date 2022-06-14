@@ -1,19 +1,23 @@
 use std::error::Error;
-use tracing::info;
-use tracing::instrument::WithSubscriber;
+use tracing::{debug, info};
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::EnvFilter;
 
 mod settings;
 mod watcher;
 
 static DEFAULT_LOG_PATH: &'static str = "./";
-static LOG_NAME: &'static str = "common.log";
+static LOG_NAME: &'static str = "yt-dl-service.log";
 
 fn setup_logger(log_dir: &str, log_name: &str) -> impl Drop {
     let (file_nb, guard) =
         tracing_appender::non_blocking(tracing_appender::rolling::never(log_dir, log_name));
-    tracing_subscriber::fmt()
+    let fmt_layer = tracing_subscriber::fmt::layer()
         .with_ansi(false)
-        .with_writer(file_nb)
+        .with_writer(file_nb);
+    tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(EnvFilter::from_default_env())
         .init();
     guard
 }
@@ -28,11 +32,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .unwrap_or(DEFAULT_LOG_PATH);
     let _guard = setup_logger(log_path, LOG_NAME);
     info!("Startup ok");
-    dbg!(s.clone());
-    dbg!(watcher::contains_unfinished_downloads("./test"));
-
-    dbg!(watcher::process_channel(s.tasks[0].url.as_str(), "./test").await);
-    dbg!(watcher::process_channel(s.tasks[0].url.as_str(), "./test").await);
+    debug!("{:?}", s);
+    let _ = dbg!(watcher::contains_unfinished_downloads("./test"));
+    let _ = dbg!(watcher::process_task(&s.tasks[0]).await);
+    let _ = dbg!(watcher::process_task(&s.tasks[0]).await);
 
     Ok(())
 }
