@@ -6,17 +6,24 @@ static SETTINGS_PATH: &'static str = "settings.json";
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DownloadEntity {
+    /// Url for video or channel, any resource which yt-dlp supports
     pub url: String,
+    /// Path where downloaded videos will be stored
     pub output_path: String,
+    /// Human readable tag for this resource
     pub name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
+    /// Videos/Channels to download
     pub tasks: Vec<DownloadEntity>,
-    pub update_time: String,
+    /// Schedule for running tasks in cron format
+    pub update_schedule: String,
+    /// Custom log path
     pub log_path: Option<String>,
+    /// Force run tasks on start of program, regardless of schedule
     pub update_on_start: Option<bool>,
 }
 

@@ -2,6 +2,7 @@ use std::error::Error;
 use tracing::{debug, info};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
+use watcher::Watcher;
 
 mod settings;
 mod watcher;
@@ -34,8 +35,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("Startup ok");
     debug!("{:?}", s);
     let _ = dbg!(watcher::contains_unfinished_downloads("./test"));
-    let _ = dbg!(watcher::process_task(&s.tasks[0]).await);
-    let _ = dbg!(watcher::process_task(&s.tasks[0]).await);
+    // let _ = dbg!(watcher::process_task(&s.tasks[0]).await);
+    // let _ = dbg!(watcher::process_task(&s.tasks[0]).await);
+
+    Watcher::new(s).run().await;
 
     Ok(())
 }

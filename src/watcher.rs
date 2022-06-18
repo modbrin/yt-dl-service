@@ -1,14 +1,16 @@
 use std::cell::Cell;
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 use std::fs::read_dir;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
+use tokio::sync::mpsc;
 use tokio::sync::oneshot;
-use tracing::{debug, trace};
+use tokio_cron_scheduler::{Job, JobScheduler};
+use tracing::{debug, error, trace};
 
-use crate::settings::DownloadEntity;
+use crate::settings::{DownloadEntity, Settings};
 
 type VideoId = String;
 
@@ -28,7 +30,7 @@ where
 }
 
 // TODO: implement
-pub fn get_unfinished_downloads<P>(dir_path: P) -> Result<BTreeSet<VideoId>, &'static str>
+pub fn get_unfinished_downloads<P>(dir_path: P) -> Result<HashSet<VideoId>, &'static str>
 where
     P: AsRef<Path>,
     PathBuf: From<P>,
@@ -82,6 +84,55 @@ pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
     Ok(())
 }
 
-pub fn setup_watcher() -> Result<(), &'static str> {
-    Ok(())
+pub async fn process_all(tasks: &Vec<DownloadEntity>) {
+    // TODO: possibility for concurrent downloads?
+    for task in tasks.iter() {
+        match process_task(task).await {
+            Err(e) => error!("Task reported error: {}", e),
+            _ => (),
+        }
+    }
+}
+
+pub struct Watcher {
+    settings: Settings,
+}
+
+impl Watcher {
+    pub fn new(settings: Settings) -> Self {
+        Watcher { settings }
+    }
+
+    pub async fn run(&self) {
+        let (send, mut recv) = mpsc::channel::<()>(1);
+        let mut scheduler = match JobScheduler::new() {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Failed to create scheduler: {}", e);
+                return;
+            }
+        };
+        let job = match Job::new_async(self.settings.update_schedule.as_str(), move |uuid, l| {
+            let send = send.clone();
+            Box::pin(async move {
+                debug!("Scheduler ping");
+                send.send(()).await;
+            })
+        }) {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Failed to create job: {}", e);
+                return;
+            }
+        };
+
+        scheduler.add(job);
+        scheduler.start();
+        loop {
+            // block current thread until scheduler ping
+            if let Some(_) = recv.recv().await {
+                process_all(&self.settings.tasks).await;
+            }
+        }
+    }
 }

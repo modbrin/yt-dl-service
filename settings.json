@@ -6,6 +6,6 @@
             "name": "My Channel"
         }
     ],
-    "updateTime": "10:20",
+    "updateSchedule": "1/20 * * * * *",
     "updateOnStart": false
 }
