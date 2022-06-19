@@ -1,5 +1,4 @@
 use crate::settings::{DownloadEntity, Settings};
-use macros::return_on_err;
 use std::cell::Cell;
 use std::collections::HashSet;
 use std::fs::read_dir;
@@ -10,7 +9,7 @@ use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::{debug, error, trace};
+use tracing::{debug, error, trace, warn};
 
 type VideoId = String;
 
@@ -47,6 +46,7 @@ pub fn remove_tmp_if_empty() -> Result<(), &'static str> {
 pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
     let (send, recv) = oneshot::channel::<()>();
     let mut child = Command::new("yt-dlp")
+        .stderr(Stdio::piped())
         .stdout(Stdio::piped())
         .arg("-P")
         .arg(&task.output_path)
@@ -59,7 +59,12 @@ pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
         .stdout
         .take()
         .ok_or("Failed to get stdout handle from child.")?;
-    let mut reader = BufReader::new(stdout).lines();
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or("Failed to get stderr handle from child.")?;
+    let mut reader_stdout = BufReader::new(stdout).lines();
+    let mut reader_stderr = BufReader::new(stderr).lines();
 
     tokio::select! {
         retcode = child.wait() => {
@@ -67,7 +72,7 @@ pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
         },
         _ = async move {
             let send_cell = Cell::new(Option::Some(send));
-            while let Ok(Some(line)) = reader.next_line().await {
+            while let Ok(Some(line)) = reader_stdout.next_line().await {
                 trace!("{}", line);
                 if line.trim_end().ends_with("has already been downloaded") {
                     debug!("Found video that has already been downloaded, stopping.");
@@ -76,6 +81,11 @@ pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
                         _ => Ok(()),
                     };
                 }
+            }
+        } => {},
+        _ = async move {
+            while let Ok(Some(line)) = reader_stderr.next_line().await {
+                warn!("{}", line);
             }
         } => {},
         _ = recv => child.kill()
@@ -95,23 +105,6 @@ pub async fn process_all(tasks: &[DownloadEntity]) {
     }
 }
 
-pub mod macros {
-    /// If error occurs, log the error along with provided message and return.
-    macro_rules! return_on_err {
-        ($try:expr, $msg:literal) => {
-            match $try {
-                Ok(v) => v,
-                Err(e) => {
-                    error!("{}: {}", $msg, e);
-                    return;
-                }
-            }
-        };
-    }
-
-    pub(crate) use return_on_err;
-}
-
 pub struct Watcher {
     settings: Settings,
 }
@@ -122,29 +115,29 @@ impl Watcher {
     }
 
     /// Executes indefinitely, processing tasks according to schedule.
-    pub async fn run(&self) {
+    pub async fn run(&self) -> Result<(), &'static str> {
         let (send, mut recv) = mpsc::channel::<()>(1);
-        let scheduler = return_on_err!(JobScheduler::new(), "Failed to create scheduler");
+        let scheduler = JobScheduler::new().map_err(|_| "Failed to create scheduler")?;
 
-        let job = return_on_err!(
-            Job::new_async(
-                self.settings.update_schedule.as_str(),
-                move |_uuid, _lock| {
-                    let send = send.clone();
-                    Box::pin(async move {
-                        debug!("Scheduler ping");
-                        let res = send.send(()).await;
-                        if res.is_err() {
-                            error!("Can't send scheduler ping: {}", res.unwrap_err());
-                        }
-                    })
-                }
-            ),
-            "Failed to create job"
-        );
+        let job = Job::new_async(
+            self.settings.update_schedule.as_str(),
+            move |_uuid, _lock| {
+                let send = send.clone();
+                Box::pin(async move {
+                    debug!("Scheduler ping");
+                    let res = send.send(()).await;
+                    if res.is_err() {
+                        error!("Can't send scheduler ping: {}", res.unwrap_err());
+                    }
+                })
+            },
+        )
+        .map_err(|_| "Failed to create async job")?;
 
-        return_on_err!(scheduler.add(job), "Failed to add a job to scheduler");
-        return_on_err!(scheduler.start(), "Failed to start scheduler");
+        scheduler
+            .add(job)
+            .map_err(|_| "Failed to add a job to scheduler")?;
+        scheduler.start().map_err(|_| "Failed to start scheduler")?;
         loop {
             // block current thread until scheduler ping
             if (recv.recv().await).is_some() {

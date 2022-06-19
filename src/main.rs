@@ -3,7 +3,6 @@ use settings::LogLevel;
 use tracing::metadata::LevelFilter;
 use tracing::{debug, error, info};
 use tracing_subscriber::prelude::*;
-use watcher::macros::return_on_err;
 use watcher::Watcher;
 
 mod settings;
@@ -26,19 +25,24 @@ fn setup_logger(log_dir: &str, log_name: &str, level: LogLevel) -> impl Drop {
 
 #[tokio::main]
 async fn main() {
-    let s = return_on_err!(
-        settings::load_settings(),
-        "Stopping, failed to get settings"
-    );
+    let s = match settings::load_settings() {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Stopping, failed to get settings: {}", e);
+            return;
+        }
+    };
     let log_path = s.log_path.as_deref().unwrap_or(DEFAULT_LOG_PATH);
     let log_level = s.log_level.clone().unwrap_or(LogLevel::Info);
     let _guard = setup_logger(log_path, LOG_NAME, log_level);
     debug!("{:?}", s);
-    return_on_err!(
-        validate_settings(&s),
-        "Stopping, failed to validate settings"
-    );
+    if let Err(e) = validate_settings(&s) {
+        error!("Stopping, failed to validate settings: {}", e);
+        return;
+    }
     info!("Startup OK.");
 
-    Watcher::new(s).run().await;
+    if let Err(e) = Watcher::new(s).run().await {
+        error!("Stopping, runtime error: {}", e);
+    }
 }

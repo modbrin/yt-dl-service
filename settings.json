@@ -1,12 +1,11 @@
 {
     "tasks": [
         {
-            "url": "https://www.youtube.com/channel/UCYx8WyaEHH-Wd9hmG0FHVzw/videos",
-            "outputPath": "/home/modbrin/projects/yt-dl-service/test/",
-            "name": "My Channel"
+            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            "outputPath": "~/yt-backup",
+            "name": "NGGYU"
         }
     ],
-    "updateSchedule": "5 * * * *",
-    "updateOnStart": false,
+    "updateSchedule": "5 * * * * *",
     "logLevel": "Trace"
 }
