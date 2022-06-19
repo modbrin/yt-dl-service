@@ -1,3 +1,5 @@
+use crate::settings::{DownloadEntity, Settings};
+use macros::return_on_err;
 use std::cell::Cell;
 use std::collections::HashSet;
 use std::fs::read_dir;
@@ -10,12 +12,10 @@ use tokio::sync::oneshot;
 use tokio_cron_scheduler::{Job, JobScheduler};
 use tracing::{debug, error, trace};
 
-use crate::settings::{DownloadEntity, Settings};
-
 type VideoId = String;
 
 /// Temp files are downloaded to tmp directory located inside given output dir.
-static TEMP_DIR: &'static str = "tmp";
+static TEMP_DIR: &str = "tmp";
 
 pub fn contains_unfinished_downloads<P>(dir_path: P) -> Result<bool, &'static str>
 where
@@ -43,6 +43,7 @@ pub fn remove_tmp_if_empty() -> Result<(), &'static str> {
     todo!()
 }
 
+/// Process single provided task.
 pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
     let (send, recv) = oneshot::channel::<()>();
     let mut child = Command::new("yt-dlp")
@@ -84,14 +85,31 @@ pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
     Ok(())
 }
 
-pub async fn process_all(tasks: &Vec<DownloadEntity>) {
+/// Iterate over available tasks and process each one linearly.
+pub async fn process_all(tasks: &[DownloadEntity]) {
     // TODO: possibility for concurrent downloads?
     for task in tasks.iter() {
-        match process_task(task).await {
-            Err(e) => error!("Task reported error: {}", e),
-            _ => (),
+        if let Err(e) = process_task(task).await {
+            error!("Task reported error: {}", e);
         }
     }
+}
+
+pub mod macros {
+    /// If error occurs, log the error along with provided message and return.
+    macro_rules! return_on_err {
+        ($try:expr, $msg:literal) => {
+            match $try {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("{}: {}", $msg, e);
+                    return;
+                }
+            }
+        };
+    }
+
+    pub(crate) use return_on_err;
 }
 
 pub struct Watcher {
@@ -103,34 +121,33 @@ impl Watcher {
         Watcher { settings }
     }
 
+    /// Executes indefinitely, processing tasks according to schedule.
     pub async fn run(&self) {
         let (send, mut recv) = mpsc::channel::<()>(1);
-        let mut scheduler = match JobScheduler::new() {
-            Ok(s) => s,
-            Err(e) => {
-                error!("Failed to create scheduler: {}", e);
-                return;
-            }
-        };
-        let job = match Job::new_async(self.settings.update_schedule.as_str(), move |uuid, l| {
-            let send = send.clone();
-            Box::pin(async move {
-                debug!("Scheduler ping");
-                send.send(()).await;
-            })
-        }) {
-            Ok(s) => s,
-            Err(e) => {
-                error!("Failed to create job: {}", e);
-                return;
-            }
-        };
+        let scheduler = return_on_err!(JobScheduler::new(), "Failed to create scheduler");
 
-        scheduler.add(job);
-        scheduler.start();
+        let job = return_on_err!(
+            Job::new_async(
+                self.settings.update_schedule.as_str(),
+                move |_uuid, _lock| {
+                    let send = send.clone();
+                    Box::pin(async move {
+                        debug!("Scheduler ping");
+                        let res = send.send(()).await;
+                        if res.is_err() {
+                            error!("Can't send scheduler ping: {}", res.unwrap_err());
+                        }
+                    })
+                }
+            ),
+            "Failed to create job"
+        );
+
+        return_on_err!(scheduler.add(job), "Failed to add a job to scheduler");
+        return_on_err!(scheduler.start(), "Failed to start scheduler");
         loop {
             // block current thread until scheduler ping
-            if let Some(_) = recv.recv().await {
+            if (recv.recv().await).is_some() {
                 process_all(&self.settings.tasks).await;
             }
         }

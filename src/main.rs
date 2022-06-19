@@ -1,44 +1,44 @@
-use std::error::Error;
-use tracing::{debug, info};
+use settings::validate_settings;
+use settings::LogLevel;
+use tracing::metadata::LevelFilter;
+use tracing::{debug, error, info};
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::EnvFilter;
+use watcher::macros::return_on_err;
 use watcher::Watcher;
 
 mod settings;
 mod watcher;
 
-static DEFAULT_LOG_PATH: &'static str = "./";
-static LOG_NAME: &'static str = "yt-dl-service.log";
+static DEFAULT_LOG_PATH: &str = "./";
+static LOG_NAME: &str = "yt-dl-service.log";
 
-fn setup_logger(log_dir: &str, log_name: &str) -> impl Drop {
+fn setup_logger(log_dir: &str, log_name: &str, level: LogLevel) -> impl Drop {
     let (file_nb, guard) =
         tracing_appender::non_blocking(tracing_appender::rolling::never(log_dir, log_name));
+    let level: LevelFilter = level.into();
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_ansi(false)
-        .with_writer(file_nb);
-    tracing_subscriber::registry()
-        .with(fmt_layer)
-        .with(EnvFilter::from_default_env())
-        .init();
+        .with_writer(file_nb)
+        .with_filter(level);
+    tracing_subscriber::registry().with(fmt_layer).init();
     guard
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let s = settings::load_settings().expect("Failed to get settings.");
-    let log_path = s
-        .log_path
-        .as_ref()
-        .map(|s| s.as_str())
-        .unwrap_or(DEFAULT_LOG_PATH);
-    let _guard = setup_logger(log_path, LOG_NAME);
-    info!("Startup ok");
+async fn main() {
+    let s = return_on_err!(
+        settings::load_settings(),
+        "Stopping, failed to get settings"
+    );
+    let log_path = s.log_path.as_deref().unwrap_or(DEFAULT_LOG_PATH);
+    let log_level = s.log_level.clone().unwrap_or(LogLevel::Info);
+    let _guard = setup_logger(log_path, LOG_NAME, log_level);
     debug!("{:?}", s);
-    let _ = dbg!(watcher::contains_unfinished_downloads("./test"));
-    // let _ = dbg!(watcher::process_task(&s.tasks[0]).await);
-    // let _ = dbg!(watcher::process_task(&s.tasks[0]).await);
+    return_on_err!(
+        validate_settings(&s),
+        "Stopping, failed to validate settings"
+    );
+    info!("Startup OK.");
 
     Watcher::new(s).run().await;
-
-    Ok(())
 }

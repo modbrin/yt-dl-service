@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::BufReader};
 
-static SETTINGS_PATH: &'static str = "settings.json";
+static SETTINGS_PATH: &str = "settings.json";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -15,6 +15,30 @@ pub struct DownloadEntity {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum LogLevel {
+    Off,
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl From<LogLevel> for tracing::metadata::LevelFilter {
+    fn from(level: LogLevel) -> Self {
+        use LogLevel::*;
+        match level {
+            Off => Self::OFF,
+            Error => Self::ERROR,
+            Warn => Self::WARN,
+            Info => Self::INFO,
+            Debug => Self::DEBUG,
+            Trace => Self::TRACE,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     /// Videos/Channels to download
@@ -25,6 +49,8 @@ pub struct Settings {
     pub log_path: Option<String>,
     /// Force run tasks on start of program, regardless of schedule
     pub update_on_start: Option<bool>,
+    /// Log level: Error, Warn, Info, Debug, Trace
+    pub log_level: Option<LogLevel>,
 }
 
 pub fn load_settings() -> Result<Settings, &'static str> {
@@ -33,4 +59,11 @@ pub fn load_settings() -> Result<Settings, &'static str> {
     let settings = serde_json::from_reader(reader)
         .map_err(|_| "Failed to deserialize settings file contents.")?;
     Ok(settings)
+}
+
+pub fn validate_settings(settings: &Settings) -> Result<(), &'static str> {
+    if settings.tasks.is_empty() {
+        return Err("Tasks list is empty.");
+    }
+    Ok(())
 }

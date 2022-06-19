@@ -6,6 +6,7 @@
             "name": "My Channel"
         }
     ],
-    "updateSchedule": "1/20 * * * * *",
-    "updateOnStart": false
+    "updateSchedule": "5 * * * *",
+    "updateOnStart": false,
+    "logLevel": "Trace"
 }
