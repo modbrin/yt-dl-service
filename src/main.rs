@@ -25,15 +25,10 @@ fn setup_logger(log_dir: &str, log_name: &str, level: LogLevel) -> impl Drop {
 
 #[tokio::main]
 async fn main() {
-    let s = match settings::load_settings() {
-        Ok(v) => v,
-        Err(e) => {
-            error!("Stopping, failed to get settings: {}", e);
-            return;
-        }
-    };
+    let s = settings::load_settings();
     let log_path = s.log_path.as_deref().unwrap_or(DEFAULT_LOG_PATH);
     let log_level = s.log_level.clone().unwrap_or(LogLevel::Info);
+
     let _guard = setup_logger(log_path, LOG_NAME, log_level);
     debug!("{:?}", s);
     if let Err(e) = validate_settings(&s) {

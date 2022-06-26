@@ -48,21 +48,25 @@ pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
     let mut child = Command::new("yt-dlp")
         .stderr(Stdio::piped())
         .stdout(Stdio::piped())
-        .arg("-P")
-        .arg(&task.output_path)
-        .arg("-P")
-        .arg(format!("temp:{}", TEMP_DIR))
+        .args(&[
+            "--no-progress",
+            "-P",
+            &task.output_path,
+            "-P",
+            format!("temp:{}", TEMP_DIR).as_str(),
+        ])
+        .args(&task.get_extra_flags())
         .arg(&task.url)
         .spawn()
-        .map_err(|_| "Failed to spawn command.")?;
+        .map_err(|_| "Failed to spawn yt-dlp subprocess.")?;
     let stdout = child
         .stdout
         .take()
-        .ok_or("Failed to get stdout handle from child.")?;
+        .ok_or("Failed to get stdout handle from yt-dlp subprocess.")?;
     let stderr = child
         .stderr
         .take()
-        .ok_or("Failed to get stderr handle from child.")?;
+        .ok_or("Failed to get stderr handle from yt-dlp subprocess.")?;
     let mut reader_stdout = BufReader::new(stdout).lines();
     let mut reader_stderr = BufReader::new(stderr).lines();
 
@@ -118,6 +122,15 @@ impl Watcher {
     pub async fn run(&self) -> Result<(), &'static str> {
         let (send, mut recv) = mpsc::channel::<()>(1);
         let scheduler = JobScheduler::new().map_err(|_| "Failed to create scheduler")?;
+
+        if let Some(update_now) = self.settings.update_on_start {
+            if update_now {
+                let res = send.send(()).await;
+                if res.is_err() {
+                    error!("Can't send scheduler ping: {}", res.unwrap_err());
+                }
+            }
+        }
 
         let job = Job::new_async(
             self.settings.update_schedule.as_str(),

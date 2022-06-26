@@ -6,6 +6,7 @@
             "name": "NGGYU"
         }
     ],
-    "updateSchedule": "5 * * * * *",
-    "logLevel": "Trace"
+    "updateSchedule": "* 5 * * * *",
+    "logLevel": "Trace",
+    "updateOnStart": true
 }
