@@ -6,7 +6,7 @@
             "name": "NGGYU"
         }
     ],
-    "updateSchedule": "* 5 * * * *",
+    "updateSchedule": [{"daily":"15:00"}, {"daily":"18:00"}],
     "logLevel": "Trace",
     "updateOnStart": true
 }

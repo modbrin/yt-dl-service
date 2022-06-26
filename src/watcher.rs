@@ -1,4 +1,4 @@
-use crate::settings::{DownloadEntity, Settings};
+use crate::settings::{parse_time, DownloadEntity, ScheduledTime, Settings};
 use std::cell::Cell;
 use std::collections::HashSet;
 use std::fs::read_dir;
@@ -132,9 +132,21 @@ impl Watcher {
             }
         }
 
-        let job = Job::new_async(
-            self.settings.update_schedule.as_str(),
-            move |_uuid, _lock| {
+        for sched in self.settings.update_schedule.iter() {
+            let send = send.clone();
+            let cron_str = match sched {
+                ScheduledTime::Cron(c) => c.clone(),
+                ScheduledTime::Daily(t) => {
+                    // TODO: this code is in dire need of pre-processed settings
+                    if let Some((h, m)) = parse_time(t) {
+                        format!("0 {} {} * * *", m, h)
+                    } else {
+                        error!("Unable to parse time \"{}\", skipping", t);
+                        continue;
+                    }
+                }
+            };
+            let job = Job::new_async(cron_str.as_str(), move |_uuid, _lock| {
                 let send = send.clone();
                 Box::pin(async move {
                     debug!("Scheduler ping");
@@ -143,13 +155,13 @@ impl Watcher {
                         error!("Can't send scheduler ping: {}", res.unwrap_err());
                     }
                 })
-            },
-        )
-        .map_err(|_| "Failed to create async job")?;
+            })
+            .map_err(|_| "Failed to create async job")?;
+            scheduler
+                .add(job)
+                .map_err(|_| "Failed to add a job to scheduler")?;
+        }
 
-        scheduler
-            .add(job)
-            .map_err(|_| "Failed to add a job to scheduler")?;
         scheduler.start().map_err(|_| "Failed to start scheduler")?;
         loop {
             // block current thread until scheduler ping

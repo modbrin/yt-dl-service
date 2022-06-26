@@ -71,7 +71,7 @@ pub struct Settings {
     /// Videos/Channels to download
     pub tasks: Vec<DownloadEntity>,
     /// Schedule for running tasks in cron format
-    pub update_schedule: String,
+    pub update_schedule: Vec<ScheduledTime>,
     /// Custom log path
     pub log_path: Option<String>,
     /// Force run tasks on start of program, regardless of schedule

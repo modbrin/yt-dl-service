@@ -37,23 +37,40 @@ Generally, it should look like this:
 {
     "tasks": [
         {
-            "url": "<YT CHANNEL LINK A>",
+            "url": "<YT CHANNEL URL A>",
             "outputPath": "~/channels-backup/channel-a",
             "name": "This is A"
         },
         {
-            "url": "<YT CHANNEL LINK B>",
+            "url": "<YT CHANNEL URL B>",
             "outputPath": "~/channels-backup/channel-b",
             "name": "This is B"
         },
     ],
-    "updateSchedule": "* 5 * * * *",
-    "logLevel": "Trace",
+    "updateSchedule": [{"daily":"20:30"}],
     "updateOnStart": true
 }
 ```
 
-
+### Example, make schedule:
+**Note that all time is in UTC, not your local time.**
+Global setting, all tasks are executed at specified time(s).
+Can be either `daily` with single time or `cron` with custom time.
+In example below, it will execute daily at 12:00 and 18:30 UTC, also at 8:00 on mondays of year 2049.
+If you are not familiar with `cron`, refer [here](https://en.wikipedia.org/wiki/Cron) and directly to [crate](https://crates.io/crates/tokio-cron-scheduler) docs.
+```json
+{
+    "tasks": [
+        ...
+    ],
+    "updateSchedule": [
+        { "daily": "12:00" },
+        { "daily": "18:30" },
+        { "cron": "0 0 8 * * 1 2049" }
+    ],
+    ...
+}
+```
 
 ### Example, download only audio:
 Task-specific setting, if `audioFormat` field is not present, will default to mp3.
@@ -71,7 +88,7 @@ Possible values for `audioFormat` are: mp3, aac, m4a, opus, vorbis, flac, alac, 
 
 ### Example, limit video resolution:
 Task-specific setting.
-Examples for `maxResolution`: 480, 720, 1080, 1440, 2160, 4320
+Examples for `maxResolution`: 480, 720, 1080, 1440, 2160, 4320 ...
 ```json
 "tasks": [
     {
@@ -85,7 +102,7 @@ Examples for `maxResolution`: 480, 720, 1080, 1440, 2160, 4320
 
 ### Example, limit download speed:
 Task-specific setting.
-Examples for `throttleSpeed`: 3.5M, 300K
+Examples for `throttleSpeed`: 3.5M, 300K ...
 ```json
 "tasks": [
     {
@@ -115,3 +132,4 @@ Pass any flags supported by yt-dlp to achieve desired behavior.
 - Update settings validation
 - Remove tmp dir when empty
 - Detect download failures, attempt failed downloads separately
+- Make settings cache to store pre-processed values
