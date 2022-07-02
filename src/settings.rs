@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::{fs::File, io::BufReader};
 use tracing::debug;
 
-static SETTINGS_PATH: &str = "settings.json";
 static DEFAULT_AUDIO_FORMAT: &str = "mp3";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -73,7 +72,7 @@ pub struct Settings {
     /// Schedule for running tasks in cron format
     pub update_schedule: Vec<ScheduledTime>,
     /// Custom log path
-    pub log_path: Option<String>,
+    pub log_dir: Option<String>,
     /// Force run tasks on start of program, regardless of schedule
     pub update_on_start: Option<bool>,
     /// Log level: Error, Warn, Info, Debug, Trace
@@ -81,8 +80,8 @@ pub struct Settings {
 }
 
 /// Parse settings from json file, panics on error
-pub fn load_settings() -> Settings {
-    let settings_file = File::open(SETTINGS_PATH)
+pub fn load_settings(path: &str) -> Settings {
+    let settings_file = File::open(path)
         .map_err(|e| eprintln!("Failed to locate settings file: {}", e))
         .unwrap();
     let reader = BufReader::new(settings_file);
@@ -122,6 +121,7 @@ pub fn parse_time(value: &str) -> Option<(u8, u8)> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub enum LogLevel {
     Off,
     Error,

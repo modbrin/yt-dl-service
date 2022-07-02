@@ -2,11 +2,12 @@
     "tasks": [
         {
             "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "outputPath": "~/yt-backup",
+            "outputPath": "/home/<MY USERNAME>/yt-backup",
             "name": "NGGYU"
         }
     ],
     "updateSchedule": [{"daily":"15:00"}, {"daily":"18:00"}],
-    "logLevel": "Trace",
-    "updateOnStart": true
+    "logLevel": "info",
+    "logDir": "/var/log/yt-dl-service",
+    "updateOnStart": false
 }

@@ -1,5 +1,5 @@
-use settings::validate_settings;
-use settings::LogLevel;
+use settings::{validate_settings, LogLevel};
+use std::env;
 use tracing::metadata::LevelFilter;
 use tracing::{debug, error, info};
 use tracing_subscriber::prelude::*;
@@ -8,7 +8,8 @@ use watcher::Watcher;
 mod settings;
 mod watcher;
 
-static DEFAULT_LOG_PATH: &str = "./";
+static DEFAULT_SETTINGS_PATH: &str = "./settings.json";
+static DEFAULT_LOG_DIR: &str = "./";
 static LOG_NAME: &str = "yt-dl-service.log";
 
 fn setup_logger(log_dir: &str, log_name: &str, level: LogLevel) -> impl Drop {
@@ -25,18 +26,24 @@ fn setup_logger(log_dir: &str, log_name: &str, level: LogLevel) -> impl Drop {
 
 #[tokio::main]
 async fn main() {
-    let s = settings::load_settings();
-    let log_path = s.log_path.as_deref().unwrap_or(DEFAULT_LOG_PATH);
+    // Get cli args
+    let args: Vec<String> = env::args().collect();
+    let settings_path = args
+        .get(1)
+        .map(String::as_str)
+        .unwrap_or(DEFAULT_SETTINGS_PATH);
+    // Load settings from file
+    let s = settings::load_settings(settings_path);
+    let log_path = s.log_dir.as_deref().unwrap_or(DEFAULT_LOG_DIR);
     let log_level = s.log_level.clone().unwrap_or(LogLevel::Info);
-
     let _guard = setup_logger(log_path, LOG_NAME, log_level);
     debug!("{:?}", s);
     if let Err(e) = validate_settings(&s) {
         error!("Stopping, failed to validate settings: {}", e);
         return;
     }
-    info!("Startup OK.");
-
+    // Main loop
+    info!("Starting watcher.");
     if let Err(e) = Watcher::new(s).run().await {
         error!("Stopping, runtime error: {}", e);
     }

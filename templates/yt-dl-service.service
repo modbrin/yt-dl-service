@@ -1,0 +1,9 @@
+[Unit]
+Description=yt-dl-service
+
+[Service]
+ExecStart=/home/<MY USERNAME>/.cargo/bin/yt-dl-service /etc/yt-dl-service/settings.json
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

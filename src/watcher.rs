@@ -6,8 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
-use tokio::sync::mpsc;
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 use tokio_cron_scheduler::{Job, JobScheduler};
 use tracing::{debug, error, trace, warn};
 
