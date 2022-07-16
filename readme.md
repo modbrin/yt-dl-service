@@ -30,12 +30,13 @@ $ cargo install --path . --root ~/.cargo
 
 4. **Configure service**
 
-4.1 Copy Necessary files
+4.1 Copy necessary files
 ```sh
 $ sudo mkdir /etc/yt-dl-service
 $ sudo mkdir /var/log/yt-dl-service 
 $ sudo cp ./templates/settings.json /etc/yt-dl-service/
 $ sudo cp ./templates/yt-dl-service.service /etc/systemd/system/
+$ sudo cp ./templates/yt-dl-service.timer /etc/systemd/system/
 ```
 4.2 Change username in service
 ```sh
@@ -48,13 +49,22 @@ $ sudo <YOUR FAVORITE EDITOR> /etc/yt-dl-service/settings.json
 ```
 Also be sure to set `"updateOnStart": true` on first launch in order to perform initial download and check if everything is working ok. Don't forget to set it back to `false` once you've ensured it's working.
 
-> Alternatively, you can keep it always on. In that case channels will be updated on boot and when you restart the service. 
+> Alternatively, you can keep it always on. In that case channels will be updated on boot and when you restart the service.
+
+> WARNING: output files path shouldn't be bound to any user, as the service can 
+> start before user login. E.g. if output path is (an external) drive, which is
+> mounted after login, service will attempt to write into inexistant drive, and
+> after login actual drive would be mounted in different path. To solve this you
+> can either add your drive in fstab to have permanent mount location or run the 
+> service with --user flag (additional changes to service file and its location are
+> needed).
 
 4.4 Enable systemd service
 ```sh
-$ sudo systemctl enable --now yt-dl-service.service
-$ sudo systemctl status yt-dl-service.service
+$ sudo systemctl enable --now yt-dl-service.timer
 ``` 
+> Additional timer service allows to offset start time of actual service by 1 min,
+> this is likely unnecessary but other system components can properly load.  
 
 5. **Summary**
 
@@ -62,7 +72,8 @@ As a result, you should have:
 * binary `/home/username/.cargo/bin/yt-dl-service`
 * config `/etc/yt-dl-service/settings.json`
 * log `/var/log/yt-dl-service/yt-dl-service.log`
-* systemd config `/etc/systemd/system/yt-dl-service.service`
+* systemd service `/etc/systemd/system/yt-dl-service.service`
+* systemd timer `/etc/systemd/system/yt-dl-service.timer`
 
 6. **Adding new channels**
 

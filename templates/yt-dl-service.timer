@@ -1,0 +1,9 @@
+[Unit]
+Description=yt-dl-service timer
+
+[Timer]
+OnBootSec=1m
+Unit=yt-dl-service.service
+
+[Install]
+WantedBy=multi-user.target
