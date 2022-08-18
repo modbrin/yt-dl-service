@@ -77,6 +77,10 @@ pub struct Settings {
     pub update_on_start: Option<bool>,
     /// Log level: Error, Warn, Info, Debug, Trace
     pub log_level: Option<LogLevel>,
+    /// Set file owner for downloaded files
+    pub set_owner: Option<String>,
+    /// Set file group for downloaded files
+    pub set_group: Option<String>,
 }
 
 /// Parse settings from json file, panics on error

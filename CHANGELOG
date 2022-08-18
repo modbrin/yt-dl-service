@@ -1,0 +1,10 @@
+# Changelog
+
+## [Unreleased]
+
+## [0.2.0] - 18-08-2022
+- Set file owner after download
+- Remove tmp dir
+
+## [0.1.0] - 16-07-2022
+- Initial MVP version: downloads, basic config and scheduler

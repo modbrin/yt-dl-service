@@ -100,9 +100,16 @@ Generally, it should look like this:
         },
     ],
     "updateSchedule": [{"daily":"20:30"}],
-    "updateOnStart": true
+    "updateOnStart": true,
+    "setOwner": "myusername",
+    "setGroup": "myusername" 
 }
 ```
+
+- `tasks` - list of tasks to be executed every update time
+- `updateSchedule` - schedule when updates happen
+- `updateOnStart` - if *true*, regardless of schedule the update will happen on program startup, e.g. on boot
+- `setOwner` and `setGroup` - set owner and group for downloaded files, **NOTE**: this applies to all files in output dirs, not only new or produced by yt-dl-service
 
 ### Example, make schedule:
 **Note that all time is in UTC, not your local time.**
@@ -177,12 +184,3 @@ Pass any flags supported by yt-dlp to achieve desired behavior.
     ...
 ],
 ```
-
-
-## TODO
-- FIX: Output files are owned by root because of service
-- FIX: Remove tmp dir when empty
-- FEAT: Handle blocking queue if schedule ping overlaps
-- FEAT: Update settings validation
-- FEAT: Detect download failures, attempt failed downloads separately
-- FEAT: Make settings cache to store pre-processed values

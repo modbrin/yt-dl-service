@@ -1,0 +1,8 @@
+# To-Do
+Feature Ideas and Technical Debts
+
+- FEAT: Handle blocking queue if schedule ping overlaps
+- FEAT: Update settings validation
+- FEAT: Detect download failures, attempt failed downloads separately
+- FEAT: Make settings cache to store pre-processed values
+- FEAT: Schedule option - execute regularly after time period since boot

@@ -9,5 +9,7 @@
     "updateSchedule": [{"daily":"15:00"}, {"daily":"18:00"}],
     "logLevel": "info",
     "logDir": "/var/log/yt-dl-service",
-    "updateOnStart": false
+    "updateOnStart": false,
+    "setOwner": "<MY USERNAME>",
+    "setGroup": "<MY USERNAME>"
 }

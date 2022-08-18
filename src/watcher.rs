@@ -1,19 +1,52 @@
 use crate::settings::{parse_time, DownloadEntity, ScheduledTime, Settings};
 use std::cell::Cell;
 use std::collections::HashSet;
-use std::fs::read_dir;
+use std::fs::{read_dir, remove_dir};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{mpsc, oneshot};
 use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 type VideoId = String;
 
 /// Temp files are downloaded to tmp directory located inside given output dir.
 static TEMP_DIR: &str = "tmp";
+
+pub fn set_attributes_in_dir<P>(
+    dir_path: P,
+    set_owner: &Option<String>,
+    set_group: &Option<String>,
+) -> Result<(), &'static str>
+where
+    P: AsRef<Path>,
+{
+    if set_owner.is_none() && set_group.is_none() {
+        return Ok(());
+    }
+    let paths =
+        read_dir(dir_path.as_ref()).map_err(|_| "Failed to list directory via indicated path.")?;
+    for p in paths {
+        if let Ok(ref entry) = p {
+            if let Ok(ref ftype) = entry.file_type() {
+                if ftype.is_file() {
+                    let fpath = entry.path();
+                    if let Some(ref new_owner) = set_owner {
+                        file_owner::set_owner(&fpath, new_owner.as_str())
+                            .map_err(|_| "Error setting new file owner")?;
+                    }
+                    if let Some(ref new_group) = set_group {
+                        file_owner::set_group(&fpath, new_group.as_str())
+                            .map_err(|_| "Error setting new file group")?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
 
 pub fn contains_unfinished_downloads<P>(dir_path: P) -> Result<bool, &'static str>
 where
@@ -28,7 +61,7 @@ where
 }
 
 // TODO: implement
-pub fn get_unfinished_downloads<P>(dir_path: P) -> Result<HashSet<VideoId>, &'static str>
+pub fn get_unfinished_downloads<P>(_dir_path: P) -> Result<HashSet<VideoId>, &'static str>
 where
     P: AsRef<Path>,
     PathBuf: From<P>,
@@ -36,13 +69,29 @@ where
     todo!()
 }
 
-// TODO: implement
-pub fn remove_tmp_if_empty() -> Result<(), &'static str> {
-    todo!()
+pub fn remove_tmp_if_empty<P>(base_path: P) -> Result<(), &'static str>
+where
+    P: AsRef<Path>,
+    PathBuf: From<P>,
+{
+    let mut tmp_path: PathBuf = PathBuf::from(base_path);
+    tmp_path.push(TEMP_DIR);
+    let mut paths =
+        read_dir(&tmp_path).map_err(|_| "Failed to list directory via indicated path.")?;
+    if paths.next().is_none() {
+        remove_dir(&tmp_path).map_err(|_| "Failed to remove temp directory.")?;
+    } else {
+        warn!("Can't remove temp dir, {:?} is not empty", &tmp_path);
+    }
+    Ok(())
 }
 
 /// Process single provided task.
-pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
+pub async fn process_task(
+    task: &DownloadEntity,
+    set_owner: &Option<String>,
+    set_group: &Option<String>,
+) -> Result<(), &'static str> {
     let (send, recv) = oneshot::channel::<()>();
     let mut child = Command::new("yt-dlp")
         .stderr(Stdio::piped())
@@ -95,17 +144,29 @@ pub async fn process_task(task: &DownloadEntity) -> Result<(), &'static str> {
                        .await
                        .map_err(|_| "Failed to stop yt-dlp subprocess.")?
     }
+    let set_attr_res = set_attributes_in_dir(&task.output_path, set_owner, set_group);
+    let remove_tmp_res = remove_tmp_if_empty(&task.output_path);
+    set_attr_res?;
+    remove_tmp_res?;
+
     Ok(())
 }
 
 /// Iterate over available tasks and process each one linearly.
-pub async fn process_all(tasks: &[DownloadEntity]) {
+pub async fn process_all(
+    tasks: &[DownloadEntity],
+    set_owner: &Option<String>,
+    set_group: &Option<String>,
+) {
     // TODO: possibility for concurrent downloads?
+    let mut counter = 0u32;
     for task in tasks.iter() {
-        if let Err(e) = process_task(task).await {
+        if let Err(e) = process_task(task, set_owner, set_group).await {
             error!("Task reported error: {}", e);
         }
+        counter += 1;
     }
+    info!("All tasks done, processed {} tasks", counter);
 }
 
 pub struct Watcher {
@@ -120,7 +181,9 @@ impl Watcher {
     /// Executes indefinitely, processing tasks according to schedule.
     pub async fn run(&self) -> Result<(), &'static str> {
         let (send, mut recv) = mpsc::channel::<()>(1);
-        let scheduler = JobScheduler::new().map_err(|_| "Failed to create scheduler")?;
+        let scheduler = JobScheduler::new()
+            .await
+            .map_err(|_| "Failed to create scheduler")?;
 
         if let Some(update_now) = self.settings.update_on_start {
             if update_now {
@@ -158,14 +221,23 @@ impl Watcher {
             .map_err(|_| "Failed to create async job")?;
             scheduler
                 .add(job)
+                .await
                 .map_err(|_| "Failed to add a job to scheduler")?;
         }
 
-        scheduler.start().map_err(|_| "Failed to start scheduler")?;
+        scheduler
+            .start()
+            .await
+            .map_err(|_| "Failed to start scheduler")?;
         loop {
             // block current thread until scheduler ping
             if (recv.recv().await).is_some() {
-                process_all(&self.settings.tasks).await;
+                process_all(
+                    &self.settings.tasks,
+                    &self.settings.set_owner,
+                    &self.settings.set_group,
+                )
+                .await;
             }
         }
     }
