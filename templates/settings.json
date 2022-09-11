@@ -2,13 +2,13 @@
     "tasks": [
         {
             "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "outputPath": "/home/<MY USERNAME>/yt-backup",
+            "outputPath": "/home/<MY USERNAME>/yt-backup/nggyu",
             "name": "NGGYU"
         }
     ],
     "updateSchedule": [{"daily":"15:00"}, {"daily":"18:00"}],
     "logLevel": "info",
-    "logDir": "/var/log/yt-dl-service",
+    "logDir": "/usr/share/yt-dl-service",
     "updateOnStart": false,
     "setOwner": "<MY USERNAME>",
     "setGroup": "<MY USERNAME>"

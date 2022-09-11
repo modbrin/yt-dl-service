@@ -1,0 +1,8 @@
+post_install() {
+	echo ""
+    echo "BEFORE RUNNING THE SERVICE, MODIFY CONFIG TO YOUR NEEDS: /usr/share/yt-dl-service/settings.json"
+	echo "AFTER THAT ENABLE SERVICE VIA: systemctl enable --now yt-dl-service.timer"
+	echo ""
+    echo "Refer https://github.com/modbrin/yt-dl-service/blob/master/readme.md#settings for more details"
+    echo ""
+}

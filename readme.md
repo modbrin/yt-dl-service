@@ -4,9 +4,20 @@ If there's a risk that certain channel can be taken down, this utility helps to 
 
 This is achieved by running `yt-dlp` in background for a list of links according to schedule.
 
-> *DISCLAIMER: This is a personal project, tailored to my needs. Therefore
-> no PKGBUILD or prebuilt binaries are provided just yet. Follow
-> [manual installation](#manual-installation) if you want to continue.*
+> *DISCLAIMER: This is a personal project, tailored to my needs. The setup instructions are not very universal and there may be problems not known to me*
+
+## Install on Arch Linux
+1. Install package:
+```
+git clone https://github.com/modbrin/yt-dl-service
+cd ./yt-dl-service
+makepkg -si
+```
+2. Edit config in `/usr/share/yt-dl-service/settings.json`, for more details refer to [settings chapter](#settings).
+3. Enable boot service via `systemctl enable yt-dl-service.timer`
+4. Start actual service `systemctl start yt-dl-service.service`
+5. Check logs `/usr/share/yt-dl-service/yt-dl-service.log` and expected downloads to ensure it's working.
+6. When modifying `settings.json` reload the service with `systemctl restart yt-dl-service.service`
 
 ## Manual Installation
 1. **Get [yt-dlp](https://github.com/yt-dlp/yt-dlp)**, depending on your platform. For example on Arch:
@@ -24,28 +35,27 @@ $ rustup toolchain install stable
 3. **Build executable**
 ```sh
 $ cd yt-dl-service
-$ cargo install --path . --root ~/.cargo
+$ cargo install --path . --root /usr
 ```
-> Binary `yt-dl-service` will be located in `~/.cargo/bin/`
+> Binary `yt-dl-service` will be located in `/usr/bin`
 
 4. **Configure service**
 
 4.1 Copy necessary files
 ```sh
-$ sudo mkdir /etc/yt-dl-service
-$ sudo mkdir /var/log/yt-dl-service 
-$ sudo cp ./templates/settings.json /etc/yt-dl-service/
-$ sudo cp ./templates/yt-dl-service.service /etc/systemd/system/
-$ sudo cp ./templates/yt-dl-service.timer /etc/systemd/system/
+$ sudo mkdir /usr/share/yt-dl-service
+$ sudo cp ./templates/settings.json /usr/share/yt-dl-service/
+$ sudo cp ./templates/yt-dl-service.service /usr/lib/systemd/system/
+$ sudo cp ./templates/yt-dl-service.timer /usr/lib/systemd/system/
 ```
 4.2 Change username in service
 ```sh
-$ sudo <YOUR FAVORITE EDITOR> /etc/systemd/system/yt-dl-service.service
+$ sudo <YOUR FAVORITE EDITOR> /usr/lib/systemd/system/yt-dl-service.service
 ```
 
 4.3 Customize settings, refer to [settings chapter](#settings). At this point you want add desired time (UTC tz) in `updateSchedule` and add some channels to `tasks`.
 ```sh
-$ sudo <YOUR FAVORITE EDITOR> /etc/yt-dl-service/settings.json
+$ sudo <YOUR FAVORITE EDITOR> /usr/share/yt-dl-service/settings.json
 ```
 Also be sure to set `"updateOnStart": true` on first launch in order to perform initial download and check if everything is working ok. Don't forget to set it back to `false` once you've ensured it's working.
 
@@ -69,11 +79,11 @@ $ sudo systemctl enable --now yt-dl-service.timer
 5. **Summary**
 
 As a result, you should have:
-* binary `/home/username/.cargo/bin/yt-dl-service`
-* config `/etc/yt-dl-service/settings.json`
-* log `/var/log/yt-dl-service/yt-dl-service.log`
-* systemd service `/etc/systemd/system/yt-dl-service.service`
-* systemd timer `/etc/systemd/system/yt-dl-service.timer`
+* binary `/usr/bin/yt-dl-service`
+* config `/usr/share/yt-dl-service/settings.json`
+* log `/usr/share/yt-dl-service/yt-dl-service.log`
+* systemd service `/usr/lib/systemd/system/yt-dl-service.service`
+* systemd timer `/usr/lib/systemd/system/yt-dl-service.timer`
 
 6. **Adding new channels**
 
